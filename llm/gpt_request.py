@@ -1,4 +1,5 @@
 import json
+import os
 from openai import OpenAI
 from dotenv import load_dotenv
 from llm_response_cleaner import clean_llm_content
@@ -28,7 +29,8 @@ def request_gpt(model: str, messages: list) -> dict:
     answer = clean_llm_content(answer)
 
     # Загрузка тарифов из файла llm_price.json
-    with open("llm_pricing.json", "r", encoding="utf-8") as f:
+    pricing_path = os.path.join(os.path.dirname(__file__), "llm_pricing.json")
+    with open(pricing_path, "r", encoding="utf-8") as f:
         pricing = json.load(f)
 
     # Извлекаем информацию о токенах из ответа API

@@ -38,6 +38,10 @@ ENV/
 .env
 .env.local
 
+# Google Sheets credentials and data
+gsheets/credentials.json
+gsheets/test_data/*.json
+
 # Logs
 *.log
 

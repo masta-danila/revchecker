@@ -47,7 +47,8 @@ def request_gemini(model: str, messages: list) -> dict:
     non_cached_prompt_tokens = prompt_tokens - cached_tokens
     
     # Загрузка тарифов из файла llm_pricing.json
-    with open("llm_pricing.json", "r", encoding="utf-8") as f:
+    pricing_path = os.path.join(os.path.dirname(__file__), "llm_pricing.json")
+    with open(pricing_path, "r", encoding="utf-8") as f:
         pricing = json.load(f)
     
     # Получаем тарифы для выбранной модели

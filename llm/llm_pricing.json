@@ -28,6 +28,14 @@
     "input_tokens": 3,
     "output_tokens": 15
   },
+  "claude-sonnet-4-5-20250929": {
+    "input_tokens": 3,
+    "output_tokens": 15
+  },
+  "claude-haiku-4-5-20251001": {
+    "input_tokens": 1,
+    "output_tokens": 5
+  },
     "deepseek-chat": {
     "1M TOKENS INPUT (CACHE HIT)": 0.07,
     "1M TOKENS INPUT (CACHE MISS)": 0.27,
@@ -46,6 +54,11 @@
     "1M input tokens": 1.25,
     "1M cached** input tokens": 0.125,
     "1M output tokens": 10
+  },  
+  "gpt-5.2": {
+    "1M input tokens": 1.75,
+    "1M cached** input tokens": 0.175,
+    "1M output tokens": 14
   },
   "gpt-5-mini": {
     "1M input tokens": 0.25,
@@ -56,6 +69,11 @@
     "1M input tokens": 0.05,
     "1M cached** input tokens": 0.005,  
     "1M output tokens": 0.4
+  },
+  "gemini-3-pro-preview": {
+    "1M input tokens": 2,
+    "1M cached** input tokens": 2,
+    "1M output tokens": 12
   },
   "gemini-2.5-flash": {
     "1M input tokens": 0.3,
