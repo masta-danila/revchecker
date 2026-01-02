@@ -5,7 +5,41 @@ from datetime import datetime
 from review_checker import check_review
 
 
-async def process_single_review(review: dict, sheet_name: str, worksheet_name: str, model: str = "grok-4-1-fast-reasoning") -> dict:
+async def check_review_with_retry(review_text: str, gender: str, model: str, max_retries: int = 3) -> dict:
+    """
+    Вызывает check_review с повторными попытками при ошибке.
+    
+    Args:
+        review_text: Текст отзыва
+        gender: Пол
+        model: Модель для обработки
+        max_retries: Максимальное количество попыток (по умолчанию 3)
+        
+    Returns:
+        Результат от check_review
+        
+    Raises:
+        Exception: Если все попытки завершились ошибкой
+    """
+    last_error = None
+    
+    for attempt in range(1, max_retries + 1):
+        try:
+            result = await check_review(review_text=review_text, gender=gender, model=model)
+            return result
+        except Exception as e:
+            last_error = e
+            if attempt < max_retries:
+                wait_time = attempt * 2  # Увеличиваем задержку с каждой попыткой
+                print(f"  [RETRY] Попытка {attempt}/{max_retries} не удалась: {e}. Повтор через {wait_time}с...")
+                await asyncio.sleep(wait_time)
+            else:
+                print(f"  [ERROR] Все {max_retries} попытки исчерпаны: {e}")
+    
+    raise last_error
+
+
+async def process_single_review(review: dict, sheet_name: str, worksheet_name: str, model: str = "grok-4-1-fast-reasoning", max_retries: int = 3) -> dict:
     """
     Обрабатывает один отзыв через LLM.
     
@@ -14,6 +48,7 @@ async def process_single_review(review: dict, sheet_name: str, worksheet_name: s
         sheet_name: Название таблицы
         worksheet_name: Название листа
         model: Модель для обработки
+        max_retries: Максимальное количество попыток при ошибке (по умолчанию 3)
         
     Returns:
         Обновленный словарь с заполненными corrected_text и gender
@@ -26,8 +61,8 @@ async def process_single_review(review: dict, sheet_name: str, worksheet_name: s
             print(f"  [WARN] Пропущен пустой отзыв в {sheet_name}/{worksheet_name}")
             return review
         
-        # Вызываем функцию проверки отзыва
-        result = await check_review(review_text=text, gender=gender, model=model)
+        # Вызываем функцию проверки отзыва с повторными попытками
+        result = await check_review_with_retry(review_text=text, gender=gender, model=model, max_retries=max_retries)
         
         # Парсим ответ от модели
         content = result.get("content", "{}")
@@ -58,7 +93,7 @@ async def process_single_review(review: dict, sheet_name: str, worksheet_name: s
         return review
 
 
-async def process_all_reviews(data: dict, model: str = "grok-4-1-fast-reasoning", max_concurrent: int = 50) -> dict:
+async def process_all_reviews(data: dict, model: str = "grok-4-1-fast-reasoning", max_concurrent: int = 50, max_retries: int = 3) -> dict:
     """
     Асинхронно обрабатывает все отзывы из структуры данных.
     
@@ -66,6 +101,7 @@ async def process_all_reviews(data: dict, model: str = "grok-4-1-fast-reasoning"
         data: Структура данных из reviews_data.json
         model: Модель для обработки
         max_concurrent: Максимальное количество параллельных запросов
+        max_retries: Максимальное количество попыток при ошибке (по умолчанию 3)
         
     Returns:
         Обновленная структура данных с обработанными отзывами
@@ -74,6 +110,7 @@ async def process_all_reviews(data: dict, model: str = "grok-4-1-fast-reasoning"
     print(f"Начинаем обработку отзывов")
     print(f"Модель: {model}")
     print(f"Максимум параллельных запросов: {max_concurrent}")
+    print(f"Максимум попыток при ошибке: {max_retries}")
     print(f"{'='*60}\n")
     
     # Семафор для ограничения количества параллельных запросов
@@ -81,7 +118,7 @@ async def process_all_reviews(data: dict, model: str = "grok-4-1-fast-reasoning"
     
     async def process_with_semaphore(review, sheet_name, worksheet_name):
         async with semaphore:
-            return await process_single_review(review, sheet_name, worksheet_name, model)
+            return await process_single_review(review, sheet_name, worksheet_name, model, max_retries)
     
     # Собираем все задачи для асинхронной обработки
     tasks = []
@@ -146,13 +183,14 @@ def save_reviews(data: dict, output_file: str):
 if __name__ == "__main__":
     # Настройки
     MODEL = "grok-4-1-fast-reasoning"
-    MAX_CONCURRENT = 50
+    MAX_CONCURRENT = 100
+    MAX_RETRIES = 3  # Количество попыток при ошибке
     
     current_dir = os.path.dirname(os.path.abspath(__file__))
     input_file = os.path.join(current_dir, "gsheets", "test_data", "reviews_data.json")
     output_file = os.path.join(current_dir, "gsheets", "test_data", "processed_reviews.json")
     
     reviews_data = load_reviews(input_file)
-    processed_data = asyncio.run(process_all_reviews(reviews_data, model=MODEL, max_concurrent=MAX_CONCURRENT))
+    processed_data = asyncio.run(process_all_reviews(reviews_data, model=MODEL, max_concurrent=MAX_CONCURRENT, max_retries=MAX_RETRIES))
     save_reviews(processed_data, output_file)
 

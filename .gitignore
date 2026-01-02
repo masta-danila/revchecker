@@ -40,7 +40,8 @@ ENV/
 
 # Google Sheets credentials and data
 gsheets/credentials.json
-gsheets/test_data/*.json
+gsheets/test_data/*
+!gsheets/test_data/.gitkeep
 
 # Logs
 *.log
