@@ -68,6 +68,10 @@ def request_deepseek(model: str, messages: list) -> dict:
     completion_tokens = result.usage.completion_tokens
     cached_tokens = result.usage.prompt_cache_hit_tokens
     non_cached_prompt_tokens = result.usage.prompt_cache_miss_tokens
+    
+    # Для reasoning моделей (deepseek-reasoner) есть отдельные reasoning tokens
+    reasoning_tokens = getattr(result.usage.completion_tokens_details, 'reasoning_tokens', 0) if hasattr(result.usage, 'completion_tokens_details') else 0
+    reasoning_tokens = reasoning_tokens or 0  # На случай None
 
     # Получаем тарифы для выбранной модели
     model_pricing = pricing.get(model)
@@ -87,8 +91,9 @@ def request_deepseek(model: str, messages: list) -> dict:
     cost_non_cached_prompt = (non_cached_prompt_tokens / 1_000_000) * input_rate
     # Стоимость кэшированных prompt_tokens
     cost_cached = (cached_tokens / 1_000_000) * cached_rate
-    # Стоимость output токенов
-    cost_output = (completion_tokens / 1_000_000) * output_rate
+    # Стоимость output токенов (включая reasoning_tokens для reasoning моделей)
+    total_output_tokens = completion_tokens + reasoning_tokens
+    cost_output = (total_output_tokens / 1_000_000) * output_rate
     total_cost = cost_non_cached_prompt + cost_cached + cost_output
 
     # Проверяем, есть ли в тарифе поля DISCOUNT TIME и DISCOUNT

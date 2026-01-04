@@ -17,7 +17,7 @@ def request_gpt(model: str, messages: list) -> dict:
         messages=messages
     )
 
-    # # Выводим первичный сырой ответ от OpenAI API в красивом формате
+    # Выводим первичный сырой ответ от OpenAI API в красивом формате
     # print("=== ПЕРВИЧНЫЙ СЫРОЙ ОТВЕТ ОТ OPENAI API ===")
     # print(json.dumps(result.model_dump(), indent=2, ensure_ascii=False, default=str))
     # print("=== КОНЕЦ ПЕРВИЧНОГО ОТВЕТА ===")
@@ -37,6 +37,10 @@ def request_gpt(model: str, messages: list) -> dict:
     prompt_tokens = result.usage.prompt_tokens
     completion_tokens = result.usage.completion_tokens
     cached_tokens = result.usage.prompt_tokens_details.cached_tokens
+    
+    # Для reasoning моделей (o1, o3) есть отдельные reasoning tokens
+    reasoning_tokens = getattr(result.usage.completion_tokens_details, 'reasoning_tokens', 0) if hasattr(result.usage, 'completion_tokens_details') else 0
+    reasoning_tokens = reasoning_tokens or 0  # На случай None
 
     # Рассчитываем количество некэшированных prompt_tokens
     non_cached_prompt_tokens = prompt_tokens - cached_tokens
@@ -59,8 +63,9 @@ def request_gpt(model: str, messages: list) -> dict:
     cost_non_cached_prompt = (non_cached_prompt_tokens / 1_000_000) * input_rate
     # Стоимость кэшированных prompt_tokens
     cost_cached = (cached_tokens / 1_000_000) * cached_rate
-    # Стоимость output токенов
-    cost_output = (completion_tokens / 1_000_000) * output_rate
+    # Стоимость output токенов (включая reasoning_tokens для o1/o3 моделей)
+    total_output_tokens = completion_tokens + reasoning_tokens
+    cost_output = (total_output_tokens / 1_000_000) * output_rate
     total_cost = cost_non_cached_prompt + cost_cached + cost_output
 
     return {"content": answer, "cost": total_cost}
@@ -68,9 +73,9 @@ def request_gpt(model: str, messages: list) -> dict:
 
 if __name__ == "__main__":
     completion = request_gpt(
-        model='gpt-5',
+        model='gpt-5.2',
         messages=[
-            {"role": "user", "content": "Перечень тарифов АдвертПро по продвижнеию сайтов advertpro.ru"}
+            {"role": "user", "content": "Флорист просто чудо, собрала невероятный букет из роз и гербер, все в моих любимых оттенках. Привезли без опозданий (заказ онлайн оформляла), упаковка стильная, не мятая. Жена в восторге была, спасибо вам от души."}
         ]
     )
 

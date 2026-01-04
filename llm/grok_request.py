@@ -10,7 +10,9 @@ def request_grok(model: str, messages: list) -> dict:
     Синхронная функция, делающая запрос к X.AI Grok.
     Возвращает словарь с очищенным контентом и рассчитанной стоимостью.
     
-    ВАЖНО: reasoning_tokens считаются как output tokens
+    ВАЖНО: reasoning_tokens считаются ОТДЕЛЬНО от completion_tokens.
+    Для моделей с reasoning общий output = completion_tokens + reasoning_tokens.
+    Оба типа токенов стоят одинаково (по тарифу output tokens).
     """
     load_dotenv()
     XAI_API_KEY = os.getenv("XAI_API_KEY")
@@ -25,6 +27,11 @@ def request_grok(model: str, messages: list) -> dict:
         model=model,
         messages=messages
     )
+
+    # Выводим первичный сырой ответ от Grok API в красивом формате
+    # print("=== ПЕРВИЧНЫЙ СЫРОЙ ОТВЕТ ОТ GROK API ===")
+    # print(json.dumps(result.model_dump(), indent=2, ensure_ascii=False, default=str))
+    # print("=== КОНЕЦ ПЕРВИЧНОГО ОТВЕТА ===")
 
     # Извлекаем сгенерированный ответ
     answer = result.choices[0].message.content
@@ -66,8 +73,12 @@ def request_grok(model: str, messages: list) -> dict:
     cost_non_cached_prompt = (non_cached_prompt_tokens / 1_000_000) * input_rate
     # Стоимость кэшированных prompt_tokens
     cost_cached = (cached_tokens / 1_000_000) * cached_rate
-    # Стоимость output токенов (включая reasoning_tokens, т.к. они считаются как output)
-    cost_completion = (completion_tokens / 1_000_000) * output_rate
+    
+    # Стоимость output токенов
+    # ВАЖНО: completion_tokens НЕ включает reasoning_tokens, они отдельно!
+    # Поэтому нужно считать оба типа токенов
+    total_output_tokens = completion_tokens + reasoning_tokens
+    cost_completion = (total_output_tokens / 1_000_000) * output_rate
 
     # Общая стоимость запроса
     total_cost = cost_non_cached_prompt + cost_cached + cost_completion
@@ -80,7 +91,7 @@ def request_grok(model: str, messages: list) -> dict:
 
 if __name__ == "__main__":
     # Тест функции
-    model = "grok-4-fast-reasoning"
+    model = "grok-4-0709"
     messages = [
         {
             "role": "user",

@@ -4,6 +4,56 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 
+def get_sheet_data_with_indices(worksheet):
+    """
+    Получает данные листа и индексы колонок.
+    
+    Args:
+        worksheet: Объект worksheet из gspread
+        
+    Returns:
+        Кортеж (all_values, text_idx, gender_idx, corrected_idx) или None при ошибке
+    """
+    all_values = worksheet.get_all_values()
+    
+    if not all_values:
+        return None
+    
+    headers = all_values[0]
+    
+    # Варианты названий колонок
+    text_variants = ["Исходный текст", "text", "текст"]
+    gender_variants = ["Пол", "gender", "пол"]
+    corrected_variants = ["Текст после правок", "corrected_text", "исправленный_текст", "исправленный текст"]
+    
+    # Ищем колонку с текстом
+    text_idx = None
+    for variant in text_variants:
+        if variant in headers:
+            text_idx = headers.index(variant)
+            break
+    
+    # Ищем колонку с полом
+    gender_idx = None
+    for variant in gender_variants:
+        if variant in headers:
+            gender_idx = headers.index(variant)
+            break
+    
+    # Ищем колонку с исправленным текстом
+    corrected_idx = None
+    for variant in corrected_variants:
+        if variant in headers:
+            corrected_idx = headers.index(variant)
+            break
+    
+    # Проверяем, что нашли все нужные колонки
+    if text_idx is None or gender_idx is None or corrected_idx is None:
+        return None
+    
+    return all_values, text_idx, gender_idx, corrected_idx
+
+
 def fetch_reviews_from_sheets() -> dict:
     """
     Читает данные из Google Sheets и возвращает структуру:
@@ -55,52 +105,14 @@ def fetch_reviews_from_sheets() -> dict:
                 worksheet_title = worksheet.title
                 print(f"  Обработка листа: {worksheet_title}")
                 
-                # Получаем все данные листа
-                all_values = worksheet.get_all_values()
+                # Получаем данные листа и индексы колонок через общую функцию
+                result = get_sheet_data_with_indices(worksheet)
                 
-                if not all_values:
+                if result is None:
+                    print(f"    Ошибка: не найдены нужные колонки в листе {worksheet_title}")
                     continue
                 
-                # Первая строка - заголовки
-                headers = all_values[0]
-                
-                # Находим индексы нужных колонок
-                # Возможные варианты названий колонок
-                text_variants = ["Исходный текст", "text", "текст"]
-                gender_variants = ["Пол", "gender", "пол"]
-                corrected_variants = ["Текст после правок", "corrected_text", "исправленный_текст", "исправленный текст"]
-                
-                try:
-                    # Ищем колонку с текстом
-                    text_idx = None
-                    for variant in text_variants:
-                        if variant in headers:
-                            text_idx = headers.index(variant)
-                            break
-                    
-                    # Ищем колонку с полом
-                    gender_idx = None
-                    for variant in gender_variants:
-                        if variant in headers:
-                            gender_idx = headers.index(variant)
-                            break
-                    
-                    # Ищем колонку с исправленным текстом
-                    corrected_idx = None
-                    for variant in corrected_variants:
-                        if variant in headers:
-                            corrected_idx = headers.index(variant)
-                            break
-                    
-                    # Проверяем, что нашли все нужные колонки
-                    if text_idx is None or gender_idx is None or corrected_idx is None:
-                        print(f"    Ошибка: не найдены нужные колонки в листе {worksheet_title}")
-                        print(f"    Найденные заголовки: {headers}")
-                        continue
-                        
-                except Exception as e:
-                    print(f"    Ошибка при обработке заголовков: {e}")
-                    continue
+                all_values, text_idx, gender_idx, corrected_idx = result
                 
                 # Собираем записи
                 reviews = []
