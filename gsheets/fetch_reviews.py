@@ -12,7 +12,8 @@ def get_sheet_data_with_indices(worksheet):
         worksheet: Объект worksheet из gspread
         
     Returns:
-        Кортеж (all_values, text_idx, gender_idx, corrected_idx) или None при ошибке
+        Кортеж (all_values, text_idx, gender_idx, corrected_idx, status_idx) или None при ошибке
+        status_idx может быть None, если колонка "Статус" не найдена
     """
     all_values = worksheet.get_all_values()
     
@@ -25,33 +26,44 @@ def get_sheet_data_with_indices(worksheet):
     text_variants = ["Исходный текст", "text", "текст"]
     gender_variants = ["Пол", "gender", "пол"]
     corrected_variants = ["Текст после правок", "corrected_text", "исправленный_текст", "исправленный текст"]
+    status_variants = ["Статус", "status", "статус"]
+    
+    # Нормализуем заголовки (убираем пробелы)
+    normalized_headers = [h.strip() for h in headers]
     
     # Ищем колонку с текстом
     text_idx = None
     for variant in text_variants:
-        if variant in headers:
-            text_idx = headers.index(variant)
+        if variant in normalized_headers:
+            text_idx = normalized_headers.index(variant)
             break
     
     # Ищем колонку с полом
     gender_idx = None
     for variant in gender_variants:
-        if variant in headers:
-            gender_idx = headers.index(variant)
+        if variant in normalized_headers:
+            gender_idx = normalized_headers.index(variant)
             break
     
     # Ищем колонку с исправленным текстом
     corrected_idx = None
     for variant in corrected_variants:
-        if variant in headers:
-            corrected_idx = headers.index(variant)
+        if variant in normalized_headers:
+            corrected_idx = normalized_headers.index(variant)
             break
     
-    # Проверяем, что нашли все нужные колонки
+    # Ищем колонку со статусом (опционально)
+    status_idx = None
+    for variant in status_variants:
+        if variant in normalized_headers:
+            status_idx = normalized_headers.index(variant)
+            break
+    
+    # Проверяем, что нашли все обязательные колонки
     if text_idx is None or gender_idx is None or corrected_idx is None:
         return None
     
-    return all_values, text_idx, gender_idx, corrected_idx
+    return all_values, text_idx, gender_idx, corrected_idx, status_idx
 
 
 def fetch_reviews_from_sheets() -> dict:
@@ -112,7 +124,7 @@ def fetch_reviews_from_sheets() -> dict:
                     print(f"    Ошибка: не найдены нужные колонки в листе {worksheet_title}")
                     continue
                 
-                all_values, text_idx, gender_idx, corrected_idx = result
+                all_values, text_idx, gender_idx, corrected_idx, status_idx = result
                 
                 # Собираем записи
                 reviews = []

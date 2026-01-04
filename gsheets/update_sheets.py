@@ -240,7 +240,7 @@ def update_sheet_with_reviews(client, sheet_id: str, sheet_name: str, worksheet_
             print(f"    [ERROR] Не найдены нужные колонки в листе {worksheet_name}")
             return
         
-        all_values, text_idx, gender_idx, corrected_idx = result
+        all_values, text_idx, gender_idx, corrected_idx, status_idx = result
         
         # Создаем словарь для быстрого поиска отзывов из JSON
         # Используем ТУ ЖЕ логику чтения текста, что и в fetch_reviews.py
@@ -251,7 +251,6 @@ def update_sheet_with_reviews(client, sheet_id: str, sheet_name: str, worksheet_
             if text:
                 reviews_dict[text] = review
         
-        print(f"    [DEBUG] Найдено отзывов в JSON: {len(reviews_dict)}")
         
         # Получаем ID листа для batch update
         worksheet_id = worksheet.id
@@ -268,7 +267,10 @@ def update_sheet_with_reviews(client, sheet_id: str, sheet_name: str, worksheet_
             rows_checked += 1
             
             # Проверяем, что строка достаточно длинная
-            if len(row) <= max(text_idx, gender_idx, corrected_idx):
+            required_cols = [text_idx, gender_idx, corrected_idx]
+            if status_idx is not None:
+                required_cols.append(status_idx)
+            if len(row) <= max(required_cols):
                 continue
             
             # Берем текст ТОЧНО ТАК ЖЕ, как в fetch_reviews.py
@@ -278,10 +280,6 @@ def update_sheet_with_reviews(client, sheet_id: str, sheet_name: str, worksheet_
             if not text:
                 continue
             
-            # DEBUG: Показываем первые строки
-            if rows_checked <= 3:
-                print(f"    [DEBUG] Строка {row_idx}: text='{text[:80]}...', corrected_empty={not corrected}")
-            
             # Берем только записи с заполненным text и пустым corrected_text
             # ТА ЖЕ ЛОГИКА, что и в fetch_reviews.py
             if not corrected:
@@ -289,11 +287,6 @@ def update_sheet_with_reviews(client, sheet_id: str, sheet_name: str, worksheet_
                 review = reviews_dict.get(text)
                 
                 if not review:
-                    if rows_checked <= 3:
-                        print(f"    [DEBUG] Строка {row_idx}: НЕ НАЙДЕНО в JSON")
-                        if reviews_dict:
-                            first_key = list(reviews_dict.keys())[0]
-                            print(f"    [DEBUG] Первый ключ из JSON: '{first_key[:80]}...'")
                     continue
                 
                 rows_matched += 1
@@ -343,10 +336,14 @@ def update_sheet_with_reviews(client, sheet_id: str, sheet_name: str, worksheet_
                         }
                         batch_updates.append(cell_format_request)
                     
+                    # Обновляем статус, если колонка существует
+                    if status_idx is not None:
+                        batch_updates.append({
+                            "range": f"{gspread.utils.rowcol_to_a1(row_idx, status_idx + 1)}",
+                            "values": [["Исправлен"]]
+                        })
+                    
                     update_count += 1
-        
-        # Выводим статистику
-        print(f"    [DEBUG] Проверено строк: {rows_checked}, совпадений: {rows_matched}")
         
         # Выполняем batch update
         if batch_updates:
