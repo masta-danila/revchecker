@@ -1,7 +1,14 @@
 import json
 import os
+import sys
 import gspread
 from google.oauth2.service_account import Credentials
+
+# Добавляем корневую директорию в путь для импорта logger_config
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from logger_config import get_fetch_logger
+
+logger = get_fetch_logger()
 
 
 def get_sheet_data_with_indices(worksheet):
@@ -105,7 +112,7 @@ def fetch_reviews_from_sheets() -> dict:
     
     # Обрабатываем каждую таблицу из конфига
     for sheet_name, sheet_id in sheets_config.items():
-        print(f"Обработка таблицы: {sheet_name}")
+        logger.info(f"Обработка таблицы: {sheet_name}")
         all_reviews[sheet_name] = {}
         
         try:
@@ -115,13 +122,13 @@ def fetch_reviews_from_sheets() -> dict:
             # Обрабатываем все листы в таблице
             for worksheet in spreadsheet.worksheets():
                 worksheet_title = worksheet.title
-                print(f"  Обработка листа: {worksheet_title}")
+                logger.info(f"  Обработка листа: {worksheet_title}")
                 
                 # Получаем данные листа и индексы колонок через общую функцию
                 result = get_sheet_data_with_indices(worksheet)
                 
                 if result is None:
-                    print(f"    Ошибка: не найдены нужные колонки в листе {worksheet_title}")
+                    logger.warning(f"    Не найдены нужные колонки в листе {worksheet_title}")
                     continue
                 
                 all_values, text_idx, gender_idx, corrected_idx, status_idx = result
@@ -147,12 +154,12 @@ def fetch_reviews_from_sheets() -> dict:
                 
                 if reviews:
                     all_reviews[sheet_name][worksheet_title] = reviews
-                    print(f"    Найдено записей: {len(reviews)}")
+                    logger.info(f"    Найдено записей: {len(reviews)}")
                 else:
-                    print(f"    Нет подходящих записей")
+                    logger.info(f"    Нет подходящих записей")
         
         except Exception as e:
-            print(f"Ошибка при обработке таблицы {sheet_name}: {e}")
+            logger.error(f"Ошибка при обработке таблицы {sheet_name}: {e}", exc_info=True)
     
     return all_reviews
 
@@ -167,12 +174,12 @@ def save_reviews_to_json(reviews: dict, output_file: str = "reviews_data.json"):
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(reviews, f, ensure_ascii=False, indent=2)
     
-    print(f"\nДанные сохранены в: {output_path}")
+    logger.info(f"Данные сохранены в: {output_path}")
     return output_path
 
 
 if __name__ == "__main__":
-    print("Начинаем загрузку данных из Google Sheets...\n")
+    logger.info("Начинаем загрузку данных из Google Sheets")
     
     # Загружаем данные
     reviews = fetch_reviews_from_sheets()
@@ -191,14 +198,14 @@ if __name__ == "__main__":
     with open(output_file_path, "w", encoding="utf-8") as f:
         json.dump(reviews, f, ensure_ascii=False, indent=2)
     
-    print(f"\nДанные сохранены в: {output_file_path}")
+    logger.info(f"Данные сохранены в: {output_file_path}")
     
     # Выводим статистику
-    print("\n=== Статистика ===")
+    logger.info("=== Статистика ===")
     total_reviews = 0
     for sheet_name, worksheets in reviews.items():
         sheet_total = sum(len(records) for records in worksheets.values())
         total_reviews += sheet_total
-        print(f"{sheet_name}: {sheet_total} записей")
-    print(f"\nВсего записей: {total_reviews}")
+        logger.info(f"{sheet_name}: {sheet_total} записей")
+    logger.info(f"Всего записей: {total_reviews}")
 
