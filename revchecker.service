@@ -1,0 +1,18 @@
+[Unit]
+Description=Review Checker Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=callchecker
+Group=callchecker
+WorkingDirectory=/home/callchecker/revchecker
+Environment=PATH=/home/callchecker/revchecker/venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/callchecker/revchecker/venv/bin/python run_full_pipeline.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+
