@@ -1,10 +1,17 @@
 import json
 import os
+import sys
 import re
 import difflib
 import gspread
 from google.oauth2.service_account import Credentials
 from .fetch_reviews import get_sheet_data_with_indices
+
+# Добавляем корневую директорию в путь для импорта logger_config
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from logger_config import get_update_logger
+
+logger = get_update_logger()
 
 
 # Константы для форматирования
@@ -226,7 +233,7 @@ def update_sheet_with_reviews(client, sheet_id: str, sheet_name: str, worksheet_
         worksheet_name: Название листа
         reviews: Список отзывов для обновления
     """
-    print(f"\n  Обработка листа: {worksheet_name}")
+    logger.info(f"  Обработка листа: {worksheet_name}")
     
     try:
         # Открываем таблицу и лист
@@ -237,7 +244,7 @@ def update_sheet_with_reviews(client, sheet_id: str, sheet_name: str, worksheet_
         result = get_sheet_data_with_indices(worksheet)
         
         if result is None:
-            print(f"    [ERROR] Не найдены нужные колонки в листе {worksheet_name}")
+            logger.error(f"    Не найдены нужные колонки в листе {worksheet_name}")
             return
         
         all_values, text_idx, gender_idx, corrected_idx, status_idx = result
@@ -362,14 +369,14 @@ def update_sheet_with_reviews(client, sheet_id: str, sheet_name: str, worksheet_
             if format_updates:
                 spreadsheet.batch_update({"requests": format_updates})
             
-            print(f"    [OK] Обновлено строк: {update_count}")
+            logger.info(f"    Обновлено строк: {update_count}")
         else:
-            print(f"    [INFO] Нет строк для обновления")
+            logger.info(f"    Нет строк для обновления")
             
     except gspread.exceptions.WorksheetNotFound:
-        print(f"    [ERROR] Лист '{worksheet_name}' не найден")
+        logger.error(f"    Лист '{worksheet_name}' не найден")
     except Exception as e:
-        print(f"    [ERROR] Ошибка при обработке листа '{worksheet_name}': {e}")
+        logger.error(f"    Ошибка при обработке листа '{worksheet_name}': {e}", exc_info=True)
 
 
 def update_all_sheets(reviews_data: dict, sheets_config_path: str, credentials_path: str):
@@ -381,25 +388,25 @@ def update_all_sheets(reviews_data: dict, sheets_config_path: str, credentials_p
         sheets_config_path: Путь к sheets_config.json
         credentials_path: Путь к credentials.json
     """
-    print(f"\n{'='*60}")
-    print(f"ОБНОВЛЕНИЕ GOOGLE SHEETS")
-    print(f"{'='*60}\n")
+    logger.info("="*60)
+    logger.info("ОБНОВЛЕНИЕ GOOGLE SHEETS")
+    logger.info("="*60)
     
     # Загружаем конфигурацию таблиц
     with open(sheets_config_path, "r", encoding="utf-8") as f:
         sheets_config = json.load(f)
     
     # Аутентификация
-    print("Аутентификация в Google Sheets...")
+    logger.info("Аутентификация в Google Sheets...")
     client = authenticate_gspread(credentials_path)
-    print("[OK] Аутентификация успешна\n")
+    logger.info("[OK] Аутентификация успешна")
     
     # Обрабатываем каждую таблицу
     for sheet_name, sheet_id in sheets_config.items():
-        print(f"Таблица: {sheet_name} (ID: {sheet_id})")
+        logger.info(f"Таблица: {sheet_name} (ID: {sheet_id})")
         
         if sheet_name not in reviews_data:
-            print(f"  [WARN] Нет данных для таблицы {sheet_name}")
+            logger.warning(f"  Нет данных для таблицы {sheet_name}")
             continue
         
         worksheets_data = reviews_data[sheet_name]
@@ -407,9 +414,9 @@ def update_all_sheets(reviews_data: dict, sheets_config_path: str, credentials_p
         for worksheet_name, reviews in worksheets_data.items():
             update_sheet_with_reviews(client, sheet_id, sheet_name, worksheet_name, reviews)
     
-    print(f"\n{'='*60}")
-    print(f"[OK] ОБНОВЛЕНИЕ ЗАВЕРШЕНО")
-    print(f"{'='*60}\n")
+    logger.info("="*60)
+    logger.info("[OK] ОБНОВЛЕНИЕ ЗАВЕРШЕНО")
+    logger.info("="*60)
 
 
 if __name__ == "__main__":
@@ -422,26 +429,26 @@ if __name__ == "__main__":
     
     # Проверяем наличие файлов
     if not os.path.exists(reviews_file):
-        print(f"[ERROR] Файл {reviews_file} не найден")
+        logger.error(f"Файл {reviews_file} не найден")
         exit(1)
     
     if not os.path.exists(sheets_config_file):
-        print(f"[ERROR] Файл {sheets_config_file} не найден")
+        logger.error(f"Файл {sheets_config_file} не найден")
         exit(1)
     
     if not os.path.exists(credentials_file):
-        print(f"[ERROR] Файл {credentials_file} не найден")
-        print("Создайте service account в Google Cloud Console и скачайте credentials.json")
+        logger.error(f"Файл {credentials_file} не найден")
+        logger.error("Создайте service account в Google Cloud Console и скачайте credentials.json")
         exit(1)
     
     # Загружаем данные отзывов
     with open(reviews_file, "r", encoding="utf-8") as f:
         reviews_data = json.load(f)
     
-    print(f"[INFO] Загружено отзывов из {reviews_file}:")
+    logger.info(f"Загружено отзывов из {reviews_file}:")
     for sheet_name, worksheets in reviews_data.items():
         for worksheet_name, reviews in worksheets.items():
-            print(f"  - {sheet_name}/{worksheet_name}: {len(reviews)} отзывов")
+            logger.info(f"  - {sheet_name}/{worksheet_name}: {len(reviews)} отзывов")
     
     # Обновляем Google Sheets
     update_all_sheets(reviews_data, sheets_config_file, credentials_file)

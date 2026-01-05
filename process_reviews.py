@@ -3,6 +3,9 @@ import os
 import asyncio
 from datetime import datetime
 from review_checker import check_review
+from logger_config import get_process_logger
+
+logger = get_process_logger()
 
 
 async def check_review_with_retry(review_text: str, gender: str, model: str, max_retries: int = 3) -> dict:
@@ -31,10 +34,10 @@ async def check_review_with_retry(review_text: str, gender: str, model: str, max
             last_error = e
             if attempt < max_retries:
                 wait_time = attempt * 2  # Увеличиваем задержку с каждой попыткой
-                print(f"  [RETRY] Попытка {attempt}/{max_retries} не удалась: {e}. Повтор через {wait_time}с...")
+                logger.warning(f"  [RETRY] Попытка {attempt}/{max_retries} не удалась: {e}. Повтор через {wait_time}с...")
                 await asyncio.sleep(wait_time)
             else:
-                print(f"  [ERROR] Все {max_retries} попытки исчерпаны: {e}")
+                logger.error(f"  [ERROR] Все {max_retries} попытки исчерпаны: {e}")
     
     raise last_error
 
@@ -58,7 +61,7 @@ async def process_single_review(review: dict, sheet_name: str, worksheet_name: s
         gender = review.get("gender", "")
         
         if not text:
-            print(f"  [WARN] Пропущен пустой отзыв в {sheet_name}/{worksheet_name}")
+            logger.warning(f"Пропущен пустой отзыв в {sheet_name}/{worksheet_name}")
             return review
         
         # Вызываем функцию проверки отзыва с повторными попытками
@@ -74,7 +77,7 @@ async def process_single_review(review: dict, sheet_name: str, worksheet_name: s
             corrected_text = corrected_data.get("text", text)
             corrected_gender = corrected_data.get("gender", gender)
         except json.JSONDecodeError:
-            print(f"  [WARN] Ошибка парсинга JSON для отзыва в {sheet_name}/{worksheet_name}")
+            logger.warning(f"Ошибка парсинга JSON для отзыва в {sheet_name}/{worksheet_name}")
             corrected_text = text
             corrected_gender = gender
         
@@ -84,12 +87,12 @@ async def process_single_review(review: dict, sheet_name: str, worksheet_name: s
         review["cost"] = cost
         review["processed_at"] = datetime.now().isoformat()
         
-        print(f"  [OK] Обработан отзыв в {sheet_name}/{worksheet_name} (cost: ${cost:.6f})")
+        logger.info(f"Обработан отзыв в {sheet_name}/{worksheet_name} (cost: ${cost:.6f})")
         
         return review
         
     except Exception as e:
-        print(f"  [ERROR] Ошибка обработки отзыва в {sheet_name}/{worksheet_name}: {e}")
+        logger.error(f"Ошибка обработки отзыва в {sheet_name}/{worksheet_name}: {e}", exc_info=True)
         return review
 
 
@@ -106,12 +109,12 @@ async def process_all_reviews(data: dict, model: str, max_concurrent: int, max_r
     Returns:
         Обновленная структура данных с обработанными отзывами
     """
-    print(f"\n{'='*60}")
-    print(f"Начинаем обработку отзывов")
-    print(f"Модель: {model}")
-    print(f"Максимум параллельных запросов: {max_concurrent}")
-    print(f"Максимум попыток при ошибке: {max_retries}")
-    print(f"{'='*60}\n")
+    logger.info("="*60)
+    logger.info("Начинаем обработку отзывов")
+    logger.info(f"Модель: {model}")
+    logger.info(f"Максимум параллельных запросов: {max_concurrent}")
+    logger.info(f"Максимум попыток при ошибке: {max_retries}")
+    logger.info("="*60)
     
     # Семафор для ограничения количества параллельных запросов
     semaphore = asyncio.Semaphore(max_concurrent)
@@ -126,17 +129,17 @@ async def process_all_reviews(data: dict, model: str, max_concurrent: int, max_r
     
     for sheet_name, worksheets in data.items():
         for worksheet_name, reviews in worksheets.items():
-            print(f"\nТаблица: {sheet_name} / Лист: {worksheet_name}")
-            print(f"Количество отзывов: {len(reviews)}")
+            logger.info(f"Таблица: {sheet_name} / Лист: {worksheet_name}")
+            logger.info(f"Количество отзывов: {len(reviews)}")
             
             for i, review in enumerate(reviews):
                 task = process_with_semaphore(review, sheet_name, worksheet_name)
                 tasks.append((sheet_name, worksheet_name, i, task))
                 total_reviews += 1
     
-    print(f"\n{'='*60}")
-    print(f"Всего отзывов к обработке: {total_reviews}")
-    print(f"{'='*60}\n")
+    logger.info("="*60)
+    logger.info(f"Всего отзывов к обработке: {total_reviews}")
+    logger.info("="*60)
     
     # Выполняем все задачи параллельно
     start_time = datetime.now()
@@ -156,13 +159,14 @@ async def process_all_reviews(data: dict, model: str, max_concurrent: int, max_r
         for review in reviews
     )
     
-    print(f"\n{'='*60}")
-    print(f"[OK] Обработка завершена!")
-    print(f"Время выполнения: {duration:.2f} секунд")
-    print(f"Обработано отзывов: {total_reviews}")
-    print(f"Общая стоимость: ${total_cost:.6f}")
-    print(f"Средняя стоимость: ${total_cost/total_reviews:.6f}" if total_reviews > 0 else "")
-    print(f"{'='*60}\n")
+    logger.info("="*60)
+    logger.info("[OK] Обработка завершена!")
+    logger.info(f"Время выполнения: {duration:.2f} секунд")
+    logger.info(f"Обработано отзывов: {total_reviews}")
+    logger.info(f"Общая стоимость: ${total_cost:.6f}")
+    if total_reviews > 0:
+        logger.info(f"Средняя стоимость: ${total_cost/total_reviews:.6f}")
+    logger.info("="*60)
     
     return data
 
@@ -177,7 +181,7 @@ def save_reviews(data: dict, output_file: str):
     """Сохраняет обработанные данные в JSON файл."""
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
-    print(f"Результаты сохранены в: {output_file}")
+    logger.info(f"Результаты сохранены в: {output_file}")
 
 
 if __name__ == "__main__":
