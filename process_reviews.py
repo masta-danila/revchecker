@@ -93,7 +93,7 @@ async def process_single_review(review: dict, sheet_name: str, worksheet_name: s
         return review
 
 
-async def process_all_reviews(data: dict, model: str = "grok-4-1-fast-reasoning", max_concurrent: int = 50, max_retries: int = 3) -> dict:
+async def process_all_reviews(data: dict, model: str, max_concurrent: int, max_retries: int) -> dict:
     """
     Асинхронно обрабатывает все отзывы из структуры данных.
     

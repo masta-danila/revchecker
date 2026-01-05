@@ -4,7 +4,7 @@ import re
 import difflib
 import gspread
 from google.oauth2.service_account import Credentials
-from fetch_reviews import get_sheet_data_with_indices
+from .fetch_reviews import get_sheet_data_with_indices
 
 
 # Константы для форматирования
