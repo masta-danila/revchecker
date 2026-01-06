@@ -20,39 +20,42 @@
 /home/callchecker/revchecker/  ← новый проект
 ```
 
-## Шаг 1: Подготовка на локальной машине
+## Шаг 1: Клонирование проекта на сервер
 
-### 1.1. Убедитесь, что у вас есть необходимые файлы:
-- `.env` - API ключи для LLM (OpenAI, Anthropic, Google, DeepSeek, Grok)
-- `gsheets/credentials.json` - credentials из Google Cloud Console
-- `gsheets/sheets_config.json` - ID Google таблиц
-
-### 1.2. Создайте архив проекта:
-```bash
-cd /Users/daniladzhiev/PycharmProjects/revchecker
-tar --exclude='venv' --exclude='gsheets/test_data' --exclude='__pycache__' \
-    --exclude='.git' --exclude='logs' -czf revchecker.tar.gz .
-```
-
-## Шаг 2: Копирование на сервер
-
-### 2.1. Скопируйте архив на сервер:
-```bash
-scp revchecker.tar.gz callchecker@YOUR_SERVER_IP:/home/callchecker/
-```
-
-### 2.2. Подключитесь к серверу:
+### 1.1. Подключитесь к серверу:
 ```bash
 ssh callchecker@YOUR_SERVER_IP
 ```
 
-### 2.3. Распакуйте проект:
+### 1.2. Клонируйте проект из GitHub:
 ```bash
 cd /home/callchecker
-mkdir -p revchecker
+git clone https://github.com/masta-danila/revchecker.git
 cd revchecker
-tar -xzf ../revchecker.tar.gz
-rm ../revchecker.tar.gz
+```
+
+## Шаг 2: Копирование конфигурационных файлов
+
+**ВАЖНО:** Эти файлы содержат секретные данные и не хранятся в Git!
+
+### 2.1. На локальной машине убедитесь, что у вас есть:
+- `.env` - API ключи для LLM (OpenAI, Anthropic, Google, DeepSeek, Grok)
+- `gsheets/credentials.json` - credentials из Google Cloud Console
+- `gsheets/sheets_config.json` - ID Google таблиц
+
+### 2.2. Скопируйте файлы на сервер:
+```bash
+# На локальной машине
+cd /Users/daniladzhiev/PycharmProjects/revchecker
+
+# Копируем .env
+scp .env callchecker@YOUR_SERVER_IP:/home/callchecker/revchecker/
+
+# Копируем Google Sheets credentials
+scp gsheets/credentials.json callchecker@YOUR_SERVER_IP:/home/callchecker/revchecker/gsheets/
+
+# Копируем конфигурацию таблиц
+scp gsheets/sheets_config.json callchecker@YOUR_SERVER_IP:/home/callchecker/revchecker/gsheets/
 ```
 
 ## Шаг 3: Установка зависимостей и проверка
@@ -133,36 +136,25 @@ tail -f /home/callchecker/revchecker/logs/process_reviews.log
 
 ## Обновление проекта
 
-### Способ 1: Через Git (рекомендуется)
-
-На сервере:
+На сервере выполните:
 ```bash
 cd /home/callchecker/revchecker
-source venv/bin/activate
-git pull origin main
-pip install -r requirements.txt
-sudo systemctl restart revchecker
-```
 
-### Способ 2: Через архив
-
-На локальной машине:
-```bash
-cd /Users/daniladzhiev/PycharmProjects/revchecker
-tar --exclude='venv' --exclude='gsheets/test_data' --exclude='__pycache__' \
-    --exclude='.git' --exclude='logs' -czf revchecker.tar.gz .
-scp revchecker.tar.gz callchecker@YOUR_SERVER_IP:/home/callchecker/
-```
-
-На сервере:
-```bash
-cd /home/callchecker/revchecker
+# Остановите службу
 sudo systemctl stop revchecker
-tar -xzf ../revchecker.tar.gz
+
+# Получите последние изменения из GitHub
+git pull origin main
+
+# Обновите зависимости (если нужно)
 source venv/bin/activate
 pip install -r requirements.txt
+
+# Запустите службу
 sudo systemctl start revchecker
 ```
+
+**Примечание:** Если вы обновили `.env` или файлы в `gsheets/`, скопируйте их заново с локальной машины (см. Шаг 2).
 
 ## Мониторинг
 

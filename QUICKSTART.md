@@ -1,34 +1,36 @@
 # Быстрая установка на сервер
 
-## 1. Подготовка архива (локально)
-
-```bash
-cd /Users/daniladzhiev/PycharmProjects/revchecker
-tar --exclude='venv' --exclude='gsheets/test_data' --exclude='__pycache__' \
-    --exclude='.git' --exclude='logs' -czf revchecker.tar.gz .
-```
-
-## 2. Копирование на сервер
-
-```bash
-# Замените YOUR_SERVER_IP на ваш IP
-scp revchecker.tar.gz callchecker@YOUR_SERVER_IP:/home/callchecker/
-```
-
-## 3. Установка на сервере
+## 1. Клонирование проекта
 
 ```bash
 # Подключитесь к серверу
 ssh callchecker@YOUR_SERVER_IP
 
-# Создайте директорию и распакуйте
+# Клонируйте проект из GitHub
 cd /home/callchecker
-mkdir -p revchecker
+git clone https://github.com/masta-danila/revchecker.git
 cd revchecker
-tar -xzf ../revchecker.tar.gz
-rm ../revchecker.tar.gz
+```
 
-# Сделайте скрипты исполняемыми и запустите установку
+## 2. Настройка окружения
+
+**ВАЖНО:** Перед запуском скриптов нужно добавить на сервер:
+- `.env` - файл с API ключами для LLM
+- `gsheets/credentials.json` - credentials из Google Cloud Console
+- `gsheets/sheets_config.json` - ID Google таблиц
+
+Скопируйте эти файлы с локальной машины:
+```bash
+# На локальной машине
+scp .env callchecker@YOUR_SERVER_IP:/home/callchecker/revchecker/
+scp gsheets/credentials.json callchecker@YOUR_SERVER_IP:/home/callchecker/revchecker/gsheets/
+scp gsheets/sheets_config.json callchecker@YOUR_SERVER_IP:/home/callchecker/revchecker/gsheets/
+```
+
+## 3. Установка на сервере
+
+```bash
+# На сервере (в /home/callchecker/revchecker)
 chmod +x deploy_server.sh setup_systemd_service.sh
 ./deploy_server.sh
 ```
